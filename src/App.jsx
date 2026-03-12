@@ -483,6 +483,7 @@ const LEVEL_COLORS = {
 const STORAGE_KEY = "crossfit-skill-tree-progress";
 const WOD_SCORES_KEY = "crossfit-wod-scores";
 const CUSTOM_WODS_KEY = "crossfit-custom-wods";
+const USER_SETTINGS_KEY = "crossfit-user-settings";
 
 function loadProgress() {
   try {
@@ -518,6 +519,18 @@ function loadCustomWods() {
 function saveCustomWods(data) {
   try { localStorage.setItem(CUSTOM_WODS_KEY, JSON.stringify(data)); }
   catch (e) { console.error("Failed to save custom WODs:", e); }
+}
+
+function loadUserSettings() {
+  try {
+    const saved = localStorage.getItem(USER_SETTINGS_KEY);
+    return saved ? JSON.parse(saved) : { name: "", weight: "", sex: "", age: "" };
+  } catch { return { name: "", weight: "", sex: "", age: "" }; }
+}
+
+function saveUserSettings(data) {
+  try { localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(data)); }
+  catch (e) { console.error("Failed to save user settings:", e); }
 }
 
 function parseScoreForComparison(scoreStr, scoreType) {
@@ -671,6 +684,11 @@ export default function App() {
   // === Delete Confirmation ===
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
+  // === User Settings State ===
+  const [userSettings, setUserSettings] = useState(loadUserSettings);
+  const [confirmReset, setConfirmReset] = useState(null);
+  const [confirmDeleteScoreIdx, setConfirmDeleteScoreIdx] = useState(null);
+
   // === Skill Tree Logic ===
   const toggleSkill = useCallback((skillId) => {
     setUnlockedSkills((prev) => {
@@ -820,10 +838,63 @@ export default function App() {
     if (selectedWod?.id === wodId) setSelectedWod(null);
   }, [selectedWod]);
 
+  // === User Settings Logic ===
+  const updateSetting = useCallback((key, value) => {
+    setUserSettings((prev) => {
+      const updated = { ...prev, [key]: value };
+      saveUserSettings(updated);
+      return updated;
+    });
+  }, []);
+
+  const deleteScoreEntry = useCallback((wodId, index) => {
+    setWodScores((prev) => {
+      const scores = [...(prev[wodId] || [])];
+      scores.splice(index, 1);
+      const updated = { ...prev };
+      if (scores.length === 0) { delete updated[wodId]; }
+      else { updated[wodId] = scores; }
+      saveWodScores(updated);
+      return updated;
+    });
+    setConfirmDeleteScoreIdx(null);
+  }, []);
+
+  const resetSkills = useCallback(() => {
+    setUnlockedSkills({});
+    saveProgressToStorage({});
+    setConfirmReset(null);
+  }, []);
+
+  const resetWodScores = useCallback(() => {
+    setWodScores({});
+    saveWodScores({});
+    setConfirmReset(null);
+  }, []);
+
+  const resetCustomWods = useCallback(() => {
+    setCustomWods([]);
+    saveCustomWods([]);
+    setConfirmReset(null);
+  }, []);
+
+  const resetAll = useCallback(() => {
+    setUnlockedSkills({});
+    saveProgressToStorage({});
+    setWodScores({});
+    saveWodScores({});
+    setCustomWods([]);
+    saveCustomWods([]);
+    setUserSettings({ name: "", weight: "", sex: "", age: "" });
+    saveUserSettings({ name: "", weight: "", sex: "", age: "" });
+    setConfirmReset(null);
+  }, []);
+
   // Reset form when selecting a new WOD
   useEffect(() => {
     resetScoreForm();
     resetTimer();
+    setConfirmDeleteScoreIdx(null);
   }, [selectedWod?.id]);
 
   // Total scores logged
@@ -838,7 +909,7 @@ export default function App() {
   const competitionWods = [...COMPETITION_WODS_PRELOADED, ...customWods];
 
   // Check if any panel is open
-  const anyPanelOpen = selectedSkill || selectedWod || showCreateWod;
+  const anyPanelOpen = selectedSkill || selectedWod || showCreateWod || confirmReset;
 
   return (
     <div style={{
@@ -1803,56 +1874,113 @@ export default function App() {
                     const pbIdx = findPersonalBest(scores, selectedWod.scoreType);
                     return scores.map((entry, i) => {
                       const isPB = i === pbIdx;
+                      const isConfirmingDelete = confirmDeleteScoreIdx === i;
                       return (
                         <div key={i} style={{
                           padding: "10px 12px",
-                          background: isPB ? "#2a1a0a" : "#0d0e10",
+                          background: isConfirmingDelete ? "#1a0a0a" : isPB ? "#2a1a0a" : "#0d0e10",
                           borderRadius: 8,
                           marginBottom: 4,
-                          borderLeft: isPB ? "3px solid #E8C547" : "3px solid transparent",
+                          borderLeft: isConfirmingDelete ? "3px solid #e74c3c" : isPB ? "3px solid #E8C547" : "3px solid transparent",
+                          transition: "all 0.2s",
                         }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{
-                                fontSize: 14,
-                                fontWeight: 700,
-                                color: isPB ? "#E8C547" : "#ccc",
-                                fontVariantNumeric: "tabular-nums",
-                              }}>{formatScore(entry.score, selectedWod.scoreType)}</span>
-                              {isPB && (
-                                <span style={{
-                                  fontSize: 9,
-                                  fontWeight: 700,
-                                  color: "#E8C547",
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.04em",
-                                }}>PB</span>
+                          {isConfirmingDelete ? (
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span style={{ fontSize: 12, color: "#e74c3c", fontWeight: 600 }}>Delete this entry?</span>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button
+                                  onClick={() => deleteScoreEntry(selectedWod.id, i)}
+                                  style={{
+                                    padding: "4px 12px",
+                                    borderRadius: 6,
+                                    border: "none",
+                                    background: "#e74c3c",
+                                    color: "#fff",
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    fontFamily: "'Barlow Condensed', sans-serif",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.04em",
+                                    cursor: "pointer",
+                                  }}
+                                >Delete</button>
+                                <button
+                                  onClick={() => setConfirmDeleteScoreIdx(null)}
+                                  style={{
+                                    padding: "4px 12px",
+                                    borderRadius: 6,
+                                    border: "1px solid #333",
+                                    background: "transparent",
+                                    color: "#666",
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    fontFamily: "'Barlow Condensed', sans-serif",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.04em",
+                                    cursor: "pointer",
+                                  }}
+                                >Cancel</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span style={{
+                                    fontSize: 14,
+                                    fontWeight: 700,
+                                    color: isPB ? "#E8C547" : "#ccc",
+                                    fontVariantNumeric: "tabular-nums",
+                                  }}>{formatScore(entry.score, selectedWod.scoreType)}</span>
+                                  {isPB && (
+                                    <span style={{
+                                      fontSize: 9,
+                                      fontWeight: 700,
+                                      color: "#E8C547",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.04em",
+                                    }}>PB</span>
+                                  )}
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <span style={{
+                                    padding: "2px 6px",
+                                    borderRadius: 4,
+                                    fontSize: 9,
+                                    fontWeight: 700,
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.04em",
+                                    background: entry.rxd ? "#E8C54733" : "#33333366",
+                                    color: entry.rxd ? "#E8C547" : "#888",
+                                  }}>{entry.rxd ? "Rx" : "SC"}</span>
+                                  <span style={{ fontSize: 11, color: "#555", fontWeight: 500 }}>{formatDate(entry.date)}</span>
+                                  <button
+                                    onClick={() => setConfirmDeleteScoreIdx(i)}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      color: "#333",
+                                      fontSize: 14,
+                                      cursor: "pointer",
+                                      padding: "2px 4px",
+                                      lineHeight: 1,
+                                    }}
+                                    title="Delete entry"
+                                  >&times;</button>
+                                </div>
+                              </div>
+                              {entry.notes && (
+                                <div style={{
+                                  marginTop: 4,
+                                  fontSize: 11,
+                                  color: "#555",
+                                  fontStyle: "italic",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}>{entry.notes}</div>
                               )}
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{
-                                padding: "2px 6px",
-                                borderRadius: 4,
-                                fontSize: 9,
-                                fontWeight: 700,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.04em",
-                                background: entry.rxd ? "#E8C54733" : "#33333366",
-                                color: entry.rxd ? "#E8C547" : "#888",
-                              }}>{entry.rxd ? "Rx" : "SC"}</span>
-                              <span style={{ fontSize: 11, color: "#555", fontWeight: 500 }}>{formatDate(entry.date)}</span>
-                            </div>
-                          </div>
-                          {entry.notes && (
-                            <div style={{
-                              marginTop: 4,
-                              fontSize: 11,
-                              color: "#555",
-                              fontStyle: "italic",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}>{entry.notes}</div>
+                            </>
                           )}
                         </div>
                       );
@@ -1990,6 +2118,214 @@ export default function App() {
       )}
 
       {/* ============================================================ */}
+      {/* SETTINGS SECTION */}
+      {/* ============================================================ */}
+      {activeSection === "settings" && (
+        <>
+          {/* Header */}
+          <div style={{ padding: "16px 16px 8px" }}>
+            <h1 style={{
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontWeight: 800,
+              fontSize: 28,
+              textTransform: "uppercase",
+              letterSpacing: "0.02em",
+              color: "#E8C547",
+            }}>Settings</h1>
+          </div>
+
+          <div style={{ padding: "0 16px 16px" }}>
+            {/* Profile Section */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ ...sectionLabel, marginBottom: 12 }}>Profile</div>
+
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#777", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Name</div>
+                <input
+                  type="text"
+                  placeholder="Your name"
+                  value={userSettings.name}
+                  onChange={(e) => updateSetting("name", e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#777", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Weight (kg)</div>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="kg"
+                    value={userSettings.weight}
+                    onChange={(e) => updateSetting("weight", e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#777", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Age</div>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="Years"
+                    value={userSettings.age}
+                    onChange={(e) => updateSetting("age", e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#777", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Sex</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {["Male", "Female"].map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => updateSetting("sex", option.toLowerCase())}
+                      style={{
+                        flex: 1,
+                        padding: "10px",
+                        borderRadius: 8,
+                        border: "none",
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                        cursor: "pointer",
+                        background: userSettings.sex === option.toLowerCase() ? "#E8C547" : "#1a1b1f",
+                        color: userSettings.sex === option.toLowerCase() ? "#000" : "#555",
+                        transition: "all 0.2s",
+                      }}
+                    >{option}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Data Management Section */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ ...sectionLabel, marginBottom: 12 }}>Data Management</div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {[
+                  { key: "skills", label: "Reset Skills Progress", desc: `${totalUnlocked} skills unlocked`, action: resetSkills, color: "#E8C547" },
+                  { key: "scores", label: "Reset WOD Scores", desc: `${totalScores} scores logged`, action: resetWodScores, color: "#E8C547" },
+                  { key: "custom", label: "Reset Custom WODs", desc: `${customWods.length} custom WODs`, action: resetCustomWods, color: "#E8C547" },
+                  { key: "all", label: "Reset Everything", desc: "All data will be erased", action: resetAll, color: "#e74c3c" },
+                ].map(({ key, label, desc, color }) => (
+                  <button
+                    key={key}
+                    onClick={() => setConfirmReset(key)}
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 8,
+                      border: key === "all" ? "1px solid #e74c3c44" : "1px solid #222",
+                      background: key === "all" ? "#1a0a0a" : "#0d0e10",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div>
+                      <div style={{
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontWeight: 600,
+                        fontSize: 14,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                        color: color,
+                      }}>{label}</div>
+                      <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{desc}</div>
+                    </div>
+                    <span style={{ color: "#333", fontSize: 16 }}>&rsaquo;</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Reset Confirmation Panel */}
+          {confirmReset && (
+            <>
+              <div
+                onClick={() => setConfirmReset(null)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.7)",
+                  zIndex: 25,
+                  animation: "fadeIn 0.2s ease",
+                }}
+              />
+              <div style={{
+                ...panelStyle,
+                borderTop: confirmReset === "all" ? "2px solid #e74c3c" : "2px solid #E8C547",
+                maxHeight: "40dvh",
+              }}>
+                <div style={{ width: 36, height: 4, borderRadius: 2, background: "#333", margin: "0 auto 16px" }} />
+                <div style={{ textAlign: "center", marginBottom: 20 }}>
+                  <h3 style={{
+                    fontFamily: "'Barlow Condensed', sans-serif",
+                    fontWeight: 700,
+                    fontSize: 20,
+                    color: confirmReset === "all" ? "#e74c3c" : "#E8C547",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.02em",
+                    marginBottom: 8,
+                  }}>
+                    {{ skills: "Reset Skills?", scores: "Reset Scores?", custom: "Reset Custom WODs?", all: "Reset Everything?" }[confirmReset]}
+                  </h3>
+                  <p style={{ fontSize: 13, color: "#888", lineHeight: 1.4 }}>
+                    {{ skills: "All skill progress will be cleared. This cannot be undone.", scores: "All logged WOD scores will be deleted. This cannot be undone.", custom: "All custom WODs and their scores will be removed. This cannot be undone.", all: "All skills, scores, custom WODs, and profile data will be erased. This cannot be undone." }[confirmReset]}
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => {
+                      ({ skills: resetSkills, scores: resetWodScores, custom: resetCustomWods, all: resetAll })[confirmReset]();
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "14px",
+                      borderRadius: 10,
+                      border: "none",
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      cursor: "pointer",
+                      background: confirmReset === "all" ? "#e74c3c" : "linear-gradient(135deg, #E8C547, #E8C547aa)",
+                      color: confirmReset === "all" ? "#fff" : "#000",
+                    }}
+                  >Confirm</button>
+                  <button
+                    onClick={() => setConfirmReset(null)}
+                    style={{
+                      padding: "14px 20px",
+                      borderRadius: 10,
+                      border: "1px solid #333",
+                      background: "transparent",
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      color: "#666",
+                      cursor: "pointer",
+                    }}
+                  >Cancel</button>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* ============================================================ */}
       {/* BOTTOM NAVIGATION */}
       {/* ============================================================ */}
       <div style={{
@@ -2009,6 +2345,7 @@ export default function App() {
         {[
           { key: "skills", label: "Skills", icon: "\u25B3" },
           { key: "wods", label: "WODs", icon: "\u23F1" },
+          { key: "settings", label: "Settings", icon: "\u2699" },
         ].map(({ key, label, icon }) => {
           const active = key === activeSection;
           return (
@@ -2019,6 +2356,7 @@ export default function App() {
                 setSelectedSkill(null);
                 setSelectedWod(null);
                 setShowCreateWod(false);
+                setConfirmReset(null);
               }}
               style={{
                 flex: 1,
