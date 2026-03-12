@@ -251,6 +251,45 @@ const SKILL_DATA = {
           "L-sit rope hang: 3 x 10s"
         ],
         cues: ["Hollow body throughout", "Hand over hand with locked arms", "Pike or L-sit legs to reduce swing"]
+      },
+      {
+        id: "toes-to-bar",
+        name: "Toes-to-Bar",
+        level: 2,
+        prereqs: ["strict-pullup"],
+        milestone: "10 unbroken toes-to-bar (kipping)",
+        drills: [
+          "Kip swing drill: 3 x 10 (arch to hollow on bar)",
+          "Knees-to-chest progression: 3 x 8",
+          "Strict leg raise from hang: 3 x 5"
+        ],
+        cues: ["Initiate with kip not abs", "Snap toes to bar then push away", "Keep arms straight throughout"]
+      },
+      {
+        id: "wall-walk",
+        name: "Wall Walk",
+        level: 2,
+        prereqs: [],
+        milestone: "5 strict wall walks with controlled descent",
+        drills: [
+          "Plank to wall walk-up: 3 x 3 slow and controlled",
+          "Nose-to-wall hold: 3 x 20s",
+          "Eccentric wall walk descent: 5 reps with 5s lowering"
+        ],
+        cues: ["Hands walk in close to the wall", "Tight midline the entire time", "Control the walk down — don't collapse"]
+      },
+      {
+        id: "pistol-squat",
+        name: "Pistol Squat",
+        level: 3,
+        prereqs: [],
+        milestone: "5 each leg unassisted with full depth",
+        drills: [
+          "Box pistol squat: lower to box and stand, 3 x 5 each leg",
+          "Banded pistol: band around rig for assistance, 3 x 5",
+          "Single leg wall sit holds: 3 x 20s each leg"
+        ],
+        cues: ["Heel stays planted", "Extend opposite leg forward", "Chest up, counterbalance with arms"]
       }
     ]
   },
@@ -389,6 +428,45 @@ const SKILL_DATA = {
           "Jerk from blocks for heavy practice"
         ],
         cues: ["Treat it as two separate lifts", "Reset breath between clean and jerk", "Commit to the jerk drive"]
+      },
+      {
+        id: "thruster",
+        name: "Thruster",
+        level: 2,
+        prereqs: ["front-squat", "push-press"],
+        milestone: "Bodyweight thruster for a single, 21 reps unbroken at 50% BW",
+        drills: [
+          "Front squat to press complex: 3 x 5 (pause at top of squat before pressing)",
+          "Wall ball shots: 3 x 15 for patterning",
+          "Thruster EMOM: 5 reps every 90s x 6 rounds"
+        ],
+        cues: ["Drive out of the squat into the press — one fluid motion", "Elbows stay high in the front rack", "Full hip extension before the bar leaves the shoulders"]
+      },
+      {
+        id: "deadlift",
+        name: "Deadlift",
+        level: 1,
+        prereqs: [],
+        milestone: "1.5x bodyweight deadlift with solid form",
+        drills: [
+          "Romanian deadlift: 3 x 8 for hamstring patterning",
+          "Pause deadlift: 3s at knee height x 5 reps",
+          "Banded good mornings: 3 x 12 for hip hinge"
+        ],
+        cues: ["Push the floor away", "Bar drags up the shins and thighs", "Shoulders over or slightly ahead of the bar off the floor"]
+      },
+      {
+        id: "hang-clean-overhead",
+        name: "Hang Clean-to-Overhead",
+        level: 3,
+        prereqs: ["power-clean", "push-press"],
+        milestone: "15 unbroken hang clean-to-overheads at 50/35 lb dumbbell",
+        drills: [
+          "DB hang power clean: 3 x 8 each arm",
+          "DB push press: 3 x 8 each arm",
+          "Hang clean-to-overhead EMOM: 8 reps every minute x 5"
+        ],
+        cues: ["Use the hip to drive the clean", "Catch and press in one rhythm", "Don't muscle it — stay efficient for high reps"]
       }
     ]
   }
